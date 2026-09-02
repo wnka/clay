@@ -38,6 +38,7 @@ var { sendIPCCommand } = require("../lib/ipc");
 var { generateAuthToken } = require("../lib/server");
 var { enableMultiUser, disableMultiUser, hasAdmin, isMultiUser, getSetupCode } = require("../lib/users");
 var clayStudioCert = require("../lib/clay-studio-cert");
+var cliWordmark = require("../lib/cli-wordmark");
 
 function openUrl(url) {
   try {
@@ -307,11 +308,11 @@ var a = {
 
 function gradient(text) {
   if (isBasicTerm) {
-    return a.yellow + text + a.reset;
+    return a.clay + text + a.reset;
   }
-  // Terracotta (#FE7150) → Warm brown (#D09558) — Clay earthy warmth
-  var r0 = 254, g0 = 113, b0 = 80;
-  var r1 = 208, g1 = 149, b1 = 88;
+  // Clay Indigo (#5857FC) → Clay Green (#07E5A3)
+  var r0 = 88, g0 = 87, b0 = 252;
+  var r1 = 7, g1 = 229, b1 = 163;
   var out = "";
   var len = text.length;
   for (var i = 0; i < len; i++) {
@@ -697,46 +698,10 @@ function ensureCerts(ip) {
 
 // --- Logo ---
 function printLogo() {
-  var r = a.reset;
-  var lines = [
-    "________/\\\\\\\\\\\\\\\\\\__/\\\\\\_________________/\\\\\\\\\\\\\\\\\\_____/\\\\\\________/\\\\\\",
-    " _____/\\\\\\////////__\\/\\\\\\_______________/\\\\\\\\\\\\\\\\\\\\\\\\\\__\\///\\\\\\____/\\\\\\/_",
-    "  ___/\\\\\\/___________\\/\\\\\\______________/\\\\\\/////////\\\\\\___\\///\\\\\\/\\\\\\/___",
-    "   __/\\\\\\_____________\\/\\\\\\_____________\\/\\\\\\_______\\/\\\\\\_____\\///\\\\\\/_____",
-    "    _\\/\\\\\\_____________\\/\\\\\\_____________\\/\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\_______\\/\\\\\\______",
-    "     _\\//\\\\\\____________\\/\\\\\\_____________\\/\\\\\\/////////\\\\\\_______\\/\\\\\\______",
-    "      __\\///\\\\\\__________\\/\\\\\\_____________\\/\\\\\\_______\\/\\\\\\_______\\/\\\\\\______",
-    "       ____\\////\\\\\\\\\\\\\\\\\\_\\/\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\_\\/\\\\\\_______\\/\\\\\\_______\\/\\\\\\______",
-    "        _______\\/////////__\\///////////////__\\///________\\///________\\///_______",
-  ];
+  var lines = cliWordmark.getWordmarkLines(process.stdout.columns);
   console.log("");
-  if (isBasicTerm) {
-    for (var i = 0; i < lines.length; i++) {
-      console.log(a.green + lines[i] + r);
-    }
-    return;
-  }
-  // Tri-accent vertical gradient: Green (#09E5A3) → Indigo (#5857FC) → Terracotta (#FE7150)
-  var stops = [
-    [9, 229, 163],
-    [88, 87, 252],
-    [254, 113, 80],
-  ];
   for (var i = 0; i < lines.length; i++) {
-    var t = lines.length > 1 ? i / (lines.length - 1) : 0;
-    var cr, cg, cb;
-    if (t <= 0.5) {
-      var s = t * 2;
-      cr = Math.round(stops[0][0] + (stops[1][0] - stops[0][0]) * s);
-      cg = Math.round(stops[0][1] + (stops[1][1] - stops[0][1]) * s);
-      cb = Math.round(stops[0][2] + (stops[1][2] - stops[0][2]) * s);
-    } else {
-      var s = (t - 0.5) * 2;
-      cr = Math.round(stops[1][0] + (stops[2][0] - stops[1][0]) * s);
-      cg = Math.round(stops[1][1] + (stops[2][1] - stops[1][1]) * s);
-      cb = Math.round(stops[1][2] + (stops[2][2] - stops[1][2]) * s);
-    }
-    console.log("\x1b[38;2;" + cr + ";" + cg + ";" + cb + "m" + lines[i] + r);
+    console.log(lines[i]);
   }
 }
 
@@ -1363,21 +1328,13 @@ function setup(callback) {
           }
           port = p;
           log(sym.bar);
-          askMode();
+          // No "single vs multi" question anymore: every deploy runs in the
+          // (general) multi-user model. Solo users get an auto-provisioned
+          // default admin with no PIN and no login wall. OS-level user
+          // isolation stays an opt-in, offered here on Linux and toggleable
+          // later; everything else is just multi-user.
+          askOsUsers("multi");
         });
-      });
-    }
-
-    function askMode() {
-      promptSelect("How will you use Clay?", [
-        { label: "Just me (single user)", value: "single" },
-        { label: "Multiple users", value: "multi" },
-      ], function (mode) {
-        if (mode === "single") {
-          finishSetup(mode, false);
-        } else {
-          askOsUsers(mode);
-        }
       });
     }
 
@@ -1558,7 +1515,7 @@ async function forkDaemon(mode, keepAwake, extraProjects, addCwd, wantOsUsers) {
     keepAwake: keepAwake,
     dangerouslySkipPermissions: dangerouslySkipPermissions,
     osUsers: wantOsUsers || osUsersMode,
-    mode: mode || "single",
+    mode: mode || "multi",
     setupCompleted: true,
     projects: allProjects,
   });
@@ -1733,7 +1690,7 @@ async function devMode(mode, keepAwake, existingPinHash, wantOsUsers) {
     debug: true,
     keepAwake: keepAwake || false,
     dangerouslySkipPermissions: dangerouslySkipPermissions,
-    mode: mode || "single",
+    mode: mode || "multi",
     setupCompleted: true,
     projects: allProjects,
     osUsers: wantOsUsers || (prevDevConfig ? (prevDevConfig.osUsers || false) : false),
@@ -2779,7 +2736,7 @@ var currentVersion = require("../package.json").version;
 
     if (isRepeatRun || autoYes) {
       // Repeat run or --yes: skip wizard, reuse saved config
-      var savedMode = (savedConfig && savedConfig.mode) || "single";
+      var savedMode = (savedConfig && savedConfig.mode) || "multi";
       var savedKeepAwake = (savedConfig && savedConfig.keepAwake) || false;
       var savedOsUsers = (savedConfig && savedConfig.osUsers) || false;
 

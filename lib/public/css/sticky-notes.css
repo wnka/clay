@@ -72,6 +72,15 @@
   box-shadow: 0 4px 20px rgba(var(--shadow-rgb), 0.2);
 }
 
+.sticky-note.sticky-note-attention {
+  animation: sticky-note-attention-pulse 0.65s ease-in-out 3;
+}
+
+@keyframes sticky-note-attention-pulse {
+  0%, 100% { box-shadow: 0 2px 12px rgba(var(--shadow-rgb), 0.12); }
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 55%, transparent), 0 4px 20px rgba(var(--shadow-rgb), 0.2); }
+}
+
 .sticky-note.dragging,
 .sticky-note.resizing {
   opacity: 0.92;
@@ -109,6 +118,15 @@
 /* On hover, header stays fully visible */
 .sticky-note:hover .sticky-note-header { opacity: 1; }
 
+.sticky-note-agent-badge {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex: 0 0 auto;
+  opacity: 0.8;
+}
+
 .sticky-note-spacer {
   flex: 1;
   min-width: 0;
@@ -122,6 +140,7 @@
   white-space: nowrap;
   color: transparent;
   pointer-events: auto;
+  touch-action: none;
 }
 
 .sticky-note-spacer:active { cursor: grabbing; }
@@ -316,13 +335,35 @@
 }
 
 .sticky-note-rendered .sn-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
   font-size: 12px;
   margin-right: 4px;
   opacity: 0.6;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 3px;
+  transition: opacity 0.15s, background 0.15s, transform 0.15s;
+}
+
+.sticky-note-rendered .sn-check:hover,
+.sticky-note-rendered .sn-check:focus-visible {
+  opacity: 1;
+  background: rgba(0,0,0,0.07);
+  outline: none;
+  transform: scale(1.08);
 }
 
 .sticky-note-rendered .sn-check.checked {
   opacity: 0.9;
+}
+
+.dark-theme .sticky-note-rendered .sn-check:hover,
+.dark-theme .sticky-note-rendered .sn-check:focus-visible {
+  background: rgba(255,255,255,0.1);
 }
 
 /* --- Resize handle (bottom-right corner) --- */
@@ -335,6 +376,7 @@
   cursor: nwse-resize;
   opacity: 0;
   transition: opacity 0.15s;
+  touch-action: none;
 }
 
 .sticky-note:hover .sticky-note-resize { opacity: 0.3; }
@@ -629,9 +671,12 @@
   font-weight: 400 !important;
   color: var(--text-dimmer) !important;
   margin-top: 6px !important;
+  max-width: 520px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
+  line-height: 1.55;
 }
 
 .notes-archive-empty-sub .lucide {
